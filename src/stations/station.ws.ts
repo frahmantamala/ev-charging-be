@@ -12,14 +12,20 @@ export interface IStationService {
 export default function createStationHandlers(stationService: IStationService) {
   return {
     async handleBootNotification(payload: any, ws: WebSocket, uniqueId: string) {
-      // Validate payload (add real validation as needed)
       const { stationName, location, firmware } = payload;
       if (!stationName) {
         const response = [4, uniqueId, 'ProtocolError', 'Missing stationName'];
-        ws.send(JSON.stringify(response));
+        try {
+          ws.send(JSON.stringify(response));
+        } catch {
+          const { connectionManager } = require('../ws/connection.manager');
+          if (payload.chargePointSerialNumber || payload.stationId) {
+            connectionManager.queueMessage(payload.chargePointSerialNumber || payload.stationId, JSON.stringify(response));
+          }
+        }
         return;
       }
-      // Register or update station
+
       let station = await stationService.getStationByName(stationName);
       if (!station) {
         station = await stationService.createStation({ name: stationName, location, firmware });
@@ -29,7 +35,14 @@ export default function createStationHandlers(stationService: IStationService) {
         interval: 60,
         status: 'Accepted'
       }];
-      ws.send(JSON.stringify(response));
+      try {
+        ws.send(JSON.stringify(response));
+      } catch {
+        const { connectionManager } = require('../ws/connection.manager');
+        if (stationName) {
+          connectionManager.queueMessage(stationName, JSON.stringify(response));
+        }
+      }
     }
   };
 }

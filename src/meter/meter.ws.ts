@@ -12,7 +12,14 @@ export default function createMeterHandlers(meterService: IMeterService) {
       const { transactionId, valueWh, timestamp, phase } = payload;
       if (!transactionId || valueWh == null || !timestamp) {
         const response = [4, uniqueId, 'ProtocolError', 'Missing required fields'];
-        ws.send(JSON.stringify(response));
+        try {
+          ws.send(JSON.stringify(response));
+        } catch {
+          const { connectionManager } = require('../ws/connection.manager');
+          if (payload.stationId) {
+            connectionManager.queueMessage(payload.stationId, JSON.stringify(response));
+          }
+        }
         return;
       }
 
@@ -24,7 +31,14 @@ export default function createMeterHandlers(meterService: IMeterService) {
       });
 
       const response = [3, uniqueId, {}];
-      ws.send(JSON.stringify(response));
+      try {
+        ws.send(JSON.stringify(response));
+      } catch {
+        const { connectionManager } = require('../ws/connection.manager');
+        if (payload.stationId) {
+          connectionManager.queueMessage(payload.stationId, JSON.stringify(response));
+        }
+      }
     }
   };
 }

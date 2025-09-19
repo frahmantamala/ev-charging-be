@@ -1,8 +1,11 @@
+export function getStationConnectionState(stationId: string) {
+  return connectionManager.getConnection(stationId);
+}
 import { WebSocket } from 'ws';
 import createStationHandlers, { IStationService } from '../stations/station.ws';
 import createTransactionHandlers, { ITransactionService } from '../transactions/transaction.ws';
 import createMeterHandlers, { IMeterService } from '../meter/meter.ws';
-// import other handlers as needed
+import { connectionManager } from './connection.manager';
 
 export function setupWebSocketServer(
   server: any,
@@ -14,12 +17,14 @@ export function setupWebSocketServer(
 ) {
   const wss = new WebSocket.Server({ server });
 
-  // Create handlers with injected services
+  // create handlers with injected services
   const stationHandlers = createStationHandlers(deps.stationService);
   const transactionHandlers = createTransactionHandlers(deps.transactionService);
   const meterHandlers = createMeterHandlers(deps.meterService);
 
   wss.on('connection', (ws: WebSocket, req) => {
+    let stationId: string | null = null;
+
     ws.on('message', async (data) => {
       console.log('Received message:', data.toString());
       try {
@@ -27,9 +32,15 @@ export function setupWebSocketServer(
         const [messageTypeId, uniqueId, action, payload] = msg;
 
         switch (action) {
-          case 'BootNotification':
+          case 'BootNotification': {
+            // extract stationId from payload (customize as needed)
+            stationId = payload.chargePointSerialNumber || payload.stationId || null;
+            if (stationId) {
+              connectionManager.addConnection(stationId, ws);
+            }
             await stationHandlers.handleBootNotification(payload, ws, uniqueId);
             break;
+          }
           case 'StartTransaction':
             await transactionHandlers.handleStartTransaction(payload, ws, uniqueId);
             break;
@@ -48,7 +59,9 @@ export function setupWebSocketServer(
     });
 
     ws.on('close', () => {
-      // Handle disconnect, cleanup
+      if (stationId) {
+        connectionManager.removeConnection(stationId);
+      }
     });
   });
 }

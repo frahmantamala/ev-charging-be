@@ -1,5 +1,6 @@
 import http from 'http';
 import { setupWebSocketServer } from './ws.handler';
+import { connectionManager } from './connection.manager';
 import createStationHandlers, { IStationService } from '../stations/station.ws';
 import createTransactionHandlers, { ITransactionService } from '../transactions/transaction.ws';
 import createMeterHandlers, { IMeterService } from '../meter/meter.ws';
@@ -20,7 +21,6 @@ const PORT = process.env.PORT || 3000;
 async function startServer() {
   await AppDataSource.initialize();
 
-  // Instantiate TypeORM repositories after initialization
   const stationRepo = new TypeOrmStationRepository(AppDataSource.getRepository(StationEntity));
   const transactionRepo = new TypeOrmTransactionRepository(AppDataSource.getRepository(TransactionEntity));
   const meterRepo = new TypeOrmMeterRepository(AppDataSource.getRepository(MeterValueEntity));
@@ -38,6 +38,20 @@ async function startServer() {
   server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
   });
+
+  // graceful shutdown
+  const shutdown = async () => {
+    console.log('Shutting down server...');
+    connectionManager.closeAllConnections();
+    server.close(() => {
+      console.log('HTTP server closed.');
+      process.exit(0);
+    });
+    // fallback: force exit after 5s
+    setTimeout(() => process.exit(1), 5000);
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 startServer();

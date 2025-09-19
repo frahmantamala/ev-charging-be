@@ -1,15 +1,43 @@
 import { MeterValue } from '../core/datamodel/meter_value.model';
 import { emitMeterValueReceived } from './meter.events';
+import { onEvent } from '../core/events/event-bus';
 
 interface IMeterRepository {
   create(meterValue: Omit<MeterValue, 'created_at'>): Promise<MeterValue>;
   listByTransaction(transactionId: string): Promise<MeterValue[]>;
 }
 
+type TxState = { status: string; start_meter: number };
+const transactionState: Map<string, TxState> = new Map();
+
+onEvent<{ transaction: { id: string; status: string; start_meter: number } }>('transaction.started', ({ transaction }) => {
+  transactionState.set(transaction.id, { status: transaction.status, start_meter: transaction.start_meter });
+});
+onEvent<{ transaction: { id: string; status: string; start_meter: number } }>('transaction.stopped', ({ transaction }) => {
+  transactionState.set(transaction.id, { status: transaction.status, start_meter: transaction.start_meter });
+});
+
 export class MeterService {
   constructor(private readonly repo: IMeterRepository) {}
 
   async createMeterValue(data: Omit<MeterValue, 'created_at'>): Promise<MeterValue> {
+    const tx = transactionState.get(data.transaction_id);
+    if (!tx) {
+      throw new Error('Transaction not found');
+    }
+    if (tx.status !== 'active') {
+      throw new Error('Transaction is not active');
+    }
+
+    const prev = await this.repo.listByTransaction(data.transaction_id);
+    if (prev.length > 0) {
+      const last = prev[prev.length - 1];
+      if (data.value_wh < last.value_wh) {
+        throw new Error('Meter value must not decrease');
+      }
+    } else if (data.value_wh < tx.start_meter) {
+      throw new Error('Meter value must not be less than transaction start meter');
+    }
     const meterValue = await this.repo.create(data);
     emitMeterValueReceived({
       transactionId: meterValue.transaction_id,

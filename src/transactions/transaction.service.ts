@@ -13,6 +13,14 @@ export class TransactionService {
   constructor(private readonly repo: ITransactionRepository) {}
 
   async createTransaction(data: Omit<Transaction, 'id' | 'created_at'>): Promise<Transaction> {
+    const active = await this.repo.findActiveByConnector(data.connector_id);
+    if (active) {
+      throw new Error('There is already an active transaction for this connector');
+    }
+
+    if (data.start_meter < 0) {
+      throw new Error('Start meter value must be >= 0');
+    }
     const transaction = await this.repo.create(data);
     emitTransactionStarted({ transaction });
     return transaction;
@@ -27,10 +35,22 @@ export class TransactionService {
   }
 
   async updateTransactionStatus(id: string, status: Transaction['status'], stopTime?: string, stopMeter?: number): Promise<void> {
-    await this.repo.updateStatus(id, status, stopTime, stopMeter);
     const transaction = await this.repo.findById(id);
-    if (transaction && status === 'stopped') {
-      emitTransactionStopped({ transaction });
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+
+    if (status === 'stopped' && transaction.status !== 'active') {
+      throw new Error('Only active transactions can be stopped');
+    }
+    
+    if (status === 'stopped' && stopMeter != null && stopMeter < transaction.start_meter) {
+      throw new Error('Stop meter value must be >= start meter value');
+    }
+    await this.repo.updateStatus(id, status, stopTime, stopMeter);
+    const updated = await this.repo.findById(id);
+    if (updated && status === 'stopped') {
+      emitTransactionStopped({ transaction: updated });
     }
   }
 

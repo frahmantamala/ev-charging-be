@@ -51,3 +51,30 @@ src/
       connector.repository.test.ts
   ...
 ```
+
+## Docker
+
+A Docker setup is provided to run the app together with PostgreSQL and Redis using docker-compose.
+
+1. Build and start services:
+
+```bash
+docker-compose up --build
+```
+
+This will start three services:
+- `db` — Postgres (postgres:15)
+- `redis` — Redis (redis:7)
+- `app` — the Node app (built from this repo)
+
+2. Run migrations (inside the app container):
+
+```bash
+docker-compose exec app pnpm run migrate:run
+```
+
+3. To run the server in development and view logs:
+
+```bash
+docker-compose up
+```

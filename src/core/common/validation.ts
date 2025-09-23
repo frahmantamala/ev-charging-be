@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+// Connector lookup schema
+export const ConnectorLookupSchema = z.object({
+	stationId: z.string().min(1, 'stationId is required'),
+	connectorNo: z.number().int().positive('connectorNo must be a positive integer'),
+	type: z.string().optional(),
+});
+
 // StatusNotification schema
 export const StatusNotificationSchema = z.object({
 	time: z.string().optional(),

@@ -3,8 +3,12 @@ export function getStationConnectionState(stationId: string) {
 }
 import { WebSocket } from 'ws';
 import createStationHandlers, { IStationService } from '../stations/station.ws';
-import { StatusNotificationRepository } from '../stations/status_notification.repository';
-import { StatusNotificationService } from '../stations/status_notification.service';
+import createConnectorHandlers, {
+} from '../connector/connector.ws';
+import { ConnectorService } from '../connector/connector.service';
+import { StatusNotificationRepository } from '../status_notification/status_notification.repository';
+import { StatusNotificationService } from '../status_notification/status_notification.service';
+import createStatusNotificationHandlers from '../status_notification/status_notification.ws';
 import { AppDataSource } from '../database/config';
 import createTransactionHandlers, {
   ITransactionService,
@@ -23,22 +27,33 @@ export function setupWebSocketServer(
 ) {
   const wss = new WebSocket.Server({ server });
 
-  // create status notification service for DB persistence
-  const statusNotificationRepo = new StatusNotificationRepository(AppDataSource);
-  const statusNotificationService = new StatusNotificationService(statusNotificationRepo);
-
-  // create handlers with injected services
-  const stationHandlers = createStationHandlers(
-    deps.stationService,
-    statusNotificationService
+  const statusNotificationRepo = new StatusNotificationRepository(
+    AppDataSource
   );
+  const statusNotificationService = new StatusNotificationService(
+    statusNotificationRepo
+  );
+
+  const { IdTagRepository } = require('../id_tag/id_tag.repository');
+  const { IdTagService } = require('../id_tag/id_tag.service');
+  const idTagService = new IdTagService(new IdTagRepository(AppDataSource));
+  const idTagHandlers = require('../id_tag/id_tag.ws').default(idTagService);
+
+  const stationHandlers = createStationHandlers(deps.stationService);
   const transactionHandlers = createTransactionHandlers(
     deps.transactionService
   );
   const meterHandlers = createMeterHandlers(deps.meterService);
 
+  const connectorService = new ConnectorService();
+  const connectorHandlers = createConnectorHandlers(connectorService);
+
+  const statusNotificationHandlers = createStatusNotificationHandlers(
+    statusNotificationService
+  );
+
   wss.on('connection', (ws: WebSocket, req) => {
-  let stationId: string | null = null;
+    let stationId: string | null = null;
     logger.info(
       { remoteAddress: req.socket?.remoteAddress },
       'WebSocket connection established'
@@ -55,9 +70,16 @@ export function setupWebSocketServer(
           'Dispatching OCPP message'
         );
         switch (action) {
+          case 'ConnectorLookup':
+            await connectorHandlers.handleFindOrCreateConnector(
+              payload,
+              ws,
+              uniqueId
+            );
+            break;
           case 'BootNotification': {
-            // extract stationId from payload (customize as needed)
-            stationId = payload.chargePointSerialNumber || payload.stationId || null;
+            stationId =
+              payload.chargePointSerialNumber || payload.stationId || null;
             if (stationId) {
               connectionManager.addConnection(stationId, ws);
             }
@@ -74,11 +96,14 @@ export function setupWebSocketServer(
             break;
           }
           case 'StatusNotification':
-            await stationHandlers.handleStatusNotification(payload, ws, uniqueId);
-            break;
+            await statusNotificationHandlers.handleSaveStatusNotification(
+              payload,
+              ws,
+              uniqueId
+            );
             break;
           case 'Authorize':
-            await stationHandlers.handleAuthorize(payload, ws, uniqueId);
+            await idTagHandlers.handleAuthorize(payload, ws, uniqueId);
             break;
           case 'StartTransaction':
             await transactionHandlers.handleStartTransaction(

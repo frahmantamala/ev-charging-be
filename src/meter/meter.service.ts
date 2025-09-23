@@ -13,6 +13,7 @@ const transactionState: Map<string, TxState> = new Map();
 onEvent<{ transaction: { id: string; status: string; start_meter: number } }>('transaction.started', ({ transaction }) => {
   transactionState.set(transaction.id, { status: transaction.status, start_meter: transaction.start_meter });
 });
+
 onEvent<{ transaction: { id: string; status: string; start_meter: number } }>('transaction.stopped', ({ transaction }) => {
   transactionState.set(transaction.id, { status: transaction.status, start_meter: transaction.start_meter });
 });
@@ -46,6 +47,34 @@ export class MeterService {
       phase: meterValue.phase,
     });
     return meterValue;
+  }
+
+  async recordMeterValuesFromOcpp(payload: any) {
+    const { transactionId, meterValue } = payload;
+    if (transactionId === undefined || transactionId === null || !Array.isArray(meterValue) || meterValue.length === 0) {
+      throw new Error('Missing transactionId or meterValue array');
+    }
+
+    for (const mv of meterValue) {
+      const { timestamp, sampledValue } = mv;
+      if (!timestamp || !Array.isArray(sampledValue)) continue;
+      const whSample = sampledValue.find((s) => s.measurand === 'Energy.Active.Import.Register' && s.unit === 'Wh');
+      if (!whSample) continue;
+      const valueWh = Number(whSample.value);
+      if (isNaN(valueWh)) continue;
+
+      const phase = whSample.phase;
+
+      const validationData: Omit<MeterValue, 'created_at'> = {
+        transaction_id: transactionId,
+        value_wh: valueWh,
+        time: timestamp,
+        phase,
+      };
+
+      await this.createMeterValue(validationData);
+    }
+    return;
   }
 
   async listMeterValuesByTransaction(transactionId: string): Promise<MeterValue[]> {

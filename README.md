@@ -23,11 +23,23 @@ All modules emit and listen for events using the event bus in `src/core/events/e
 ## Running the App
 1. Install dependencies: `pnpm install`
 2. Configure your database and Redis in `.env`
-3. Run migrations: `pnpm run migration`
-4. Start the server: `pnpm start`
+3. Run migrations:
+  - The repo includes a lightweight migration helper: `pnpm run migration`
+  - Alternatively you can run the TypeORM migrator: `pnpm run migrate:run`
+4. Start the server: `pnpm run:server`
+
+Before starting the server make sure:
+- PostgreSQL is running and reachable using `DATABASE_SOURCE` in your `.env`.
+- Redis is running and reachable using `REDIS_URL` in your `.env`.
 
 ## Testing
-Add tests for each module in a `__tests__` folder or as `.test.ts` files next to the module. Example test structure:
+There are currently no runnable test scripts configured in `package.json` (the `test` script is a placeholder). If you add tests you can run them with Jest; suggested steps:
+
+- Install dev deps (Jest + ts-jest are already listed as devDependencies).
+- Add a `test` script in `package.json`, for example: `"test": "jest --config jest.config.js"`.
+- Place unit tests next to modules or under `__tests__` as you prefer.
+
+Example structure:
 
 ```
 src/
@@ -39,8 +51,3 @@ src/
       connector.repository.test.ts
   ...
 ```
-
-## Contributing
-- Keep modules decoupled and event-driven.
-- Add/maintain tests for all modules.
-- Update documentation for any architectural changes.

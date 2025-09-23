@@ -10,7 +10,8 @@
     "run:server": "exec ts-node src/transport/ws.server.ts",
     "run:flush-cached": "redis-cli FLUSHALL",
     "seed": "ts-node src/seeds/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --runInBand",
+    "test:integration": "jest src/integration/lifecycle.integration.test.ts --runInBand"
   },
   "keywords": [],
   "author": "",

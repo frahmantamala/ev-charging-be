@@ -24,11 +24,20 @@ describe('Charger lifecycle integration (handler-level)', () => {
     const transactionService: any = {
       async createTransaction(data: any) { return { id: 'tx-1', ...data }; },
       async getTransactionById() { return null; },
-      async updateTransactionStatus() {}
+      async updateTransactionStatus() {},
+      // handler expects startTransactionWithDependencies to exist
+      async startTransactionWithDependencies(params: any, deps: any) {
+        // simulate connector resolution and idTag authorization already done by eventBus subscribers
+        return {
+          transaction: { id: 'tx-1', connector_id: params.connectorId, id_tag: params.idTag, meter_start: params.meterStart, station_id: params.stationId },
+          idTagInfo: { status: 'Accepted' },
+        };
+      }
     };
 
     const meterService: any = {
-      async saveMeterValues() {}
+      async saveMeterValues() {},
+      async createMeterValue(data: any) { return { id: 'mv-1', ...data }; }
     };
 
     // create handlers
@@ -72,15 +81,26 @@ describe('Charger lifecycle integration (handler-level)', () => {
 
     await transactionHandlers.handleStartTransaction({ connectorId: 1, idTag: 'tag-1', meterStart: 0, timestamp: new Date().toISOString(), stationId: 'station-1' }, mockWs, 'u5');
 
-    await meterHandlers.handleMeterValues({ transactionId: 'tx-1', valueWh: 10, timestamp: new Date().toISOString() }, mockWs, 'u6');
+    await meterHandlers.handleMeterValues({
+      transactionId: 'tx-1',
+      meterValue: [
+        {
+          timestamp: new Date().toISOString(),
+          sampledValue: [
+            { measurand: 'Energy.Active.Import.Register', unit: 'Wh', value: 10 }
+          ]
+        }
+      ]
+    }, mockWs, 'u6');
 
     await transactionHandlers.handleStopTransaction({ transactionId: 'tx-1', meterStop: 10, timestamp: new Date().toISOString() }, mockWs, 'u7');
 
     await stationHandlers.handleStatusNotification({ connectorId: 1, status: 'Unavailable', time: new Date().toISOString() }, mockWs, 'u8');
 
-    expect(statusEvents.length).toBeGreaterThanOrEqual(2);
-    expect(statusEvents[0].connector_id).toBe(1);
-    expect(statusEvents[1].connector_id).toBe(1);
+  expect(statusEvents.length).toBeGreaterThanOrEqual(2);
+  // connectors are looked up and resolved to UUIDs by the connector lookup flow
+  expect(statusEvents[0].connector_id).toBe('connector-uuid-1');
+  expect(statusEvents[1].connector_id).toBe('connector-uuid-1');
 
     const txCreate = sentMessages.find(m => m[0] === 3 && m[2] && m[2].transactionId);
     expect(txCreate).toBeDefined();

@@ -47,7 +47,6 @@ async function startServer() {
       console.log('HTTP server closed.');
       process.exit(0);
     });
-    // fallback: force exit after 5s
     setTimeout(() => process.exit(1), 5000);
   };
   process.on('SIGINT', shutdown);

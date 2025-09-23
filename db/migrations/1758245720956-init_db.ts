@@ -2,7 +2,6 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class InitDb1758245720956 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Ensure required extensions are present
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS timescaledb;`);
 
@@ -47,6 +46,7 @@ export class InitDb1758245720956 implements MigrationInterface {
     // ----- Meter Values (Timescale hypertable) -----
     await queryRunner.query(`
       CREATE TABLE meter_values (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         time TIMESTAMPTZ NOT NULL,
         transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
         value_wh BIGINT NOT NULL,

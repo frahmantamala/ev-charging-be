@@ -2,7 +2,8 @@ type UUID = string;
 
 export interface StatusNotification {
   time: string;
-  connector_id: UUID;
+  station_id?: UUID;
+  connector_id: number;
   status: string;
   error_code?: string;
   info?: string;

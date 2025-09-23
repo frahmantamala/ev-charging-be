@@ -43,6 +43,8 @@ export class TypeOrmStationRepository {
       name: entity.name,
       location: entity.location,
       firmware: entity.firmware,
+      charge_point_serial_number: entity.charge_point_serial_number ?? '',
+      charge_box_serial_number: entity.charge_box_serial_number ?? '',
       created_at: entity.created_at.toISOString(),
       updated_at: entity.updated_at.toISOString(),
     };

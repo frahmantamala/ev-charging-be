@@ -63,7 +63,7 @@ docker-compose up --build
 ```
 
 This will start three services:
-- `db` — Postgres (postgres:15)
+- `db` — Postgres (timescale/timescaledb:latest-pg17)
 - `redis` — Redis (redis:7)
 - `app` — the Node app (built from this repo)
 

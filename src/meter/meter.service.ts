@@ -81,3 +81,7 @@ export class MeterService {
     return this.repo.listByTransaction(transactionId);
   }
 }
+
+export function setTransactionState(id: string, state: TxState) {
+  transactionState.set(id, state);
+}

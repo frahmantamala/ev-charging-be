@@ -8,6 +8,8 @@ interface IStationRepository {
   create(station: Omit<Station, 'id' | 'created_at' | 'updated_at'>): Promise<Station>;
   findById(id: string): Promise<Station | null>;
   findByName(name: string): Promise<Station | null>;
+  findBySerial(serial: string): Promise<Station | null>;
+  createOrUpdateBySerial(data: Omit<Station, 'id' | 'created_at' | 'updated_at'>): Promise<Station>;
   update(id: string, update: Partial<Omit<Station, 'id' | 'created_at' | 'updated_at'>>): Promise<Station>;
   list(): Promise<Station[]>;
 }
@@ -85,6 +87,13 @@ export class StationService {
     if (!data.name || data.name.trim() === '') {
       throw new Error('Station name is required');
     }
+
+    if (data.charge_point_serial_number && data.charge_point_serial_number.trim() !== '') {
+      const station = await (this.repo as any).createOrUpdateBySerial(data);
+      emitStationCreated({ station });
+      return station;
+    }
+
     const existing = await this.repo.findByName(data.name);
     if (existing) {
       throw new Error('Station name already exists');

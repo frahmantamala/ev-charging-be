@@ -25,6 +25,35 @@ export class TypeOrmStationRepository {
     return found ? this.toModel(found) : null;
   }
 
+  async findBySerial(serial: string): Promise<Station | null> {
+    if (!serial) return null;
+    const found = await this.repo.findOne({ where: { charge_point_serial_number: serial } });
+    return found ? this.toModel(found) : null;
+  }
+
+  async createOrUpdateBySerial(data: Omit<Station, 'id' | 'created_at' | 'updated_at'>): Promise<Station> {
+    if (!data.charge_point_serial_number) {
+      return this.create(data);
+    }
+    const serial = data.charge_point_serial_number;
+    const existing = await this.repo.findOne({ where: { charge_point_serial_number: serial } });
+    if (existing) {
+      await this.repo.update(existing.id, { ...data, updated_at: new Date() });
+      const updated = await this.repo.findOneBy({ id: existing.id });
+      return this.toModel(updated!);
+    }
+    try {
+      return await this.create(data);
+    } catch (err: any) {
+      // another process created concurrently, return the existing row
+      if (err && err.code && (err.code === '23505' || err.code === 'SQLITE_CONSTRAINT')) {
+        const re = await this.repo.findOne({ where: { charge_point_serial_number: serial } });
+        if (re) return this.toModel(re);
+      }
+      throw err;
+    }
+  }
+
   async update(id: string, update: Partial<Omit<Station, 'id' | 'created_at' | 'updated_at'>>): Promise<Station> {
     await this.repo.update(id, { ...update, updated_at: new Date() });
     const updated = await this.repo.findOneBy({ id });

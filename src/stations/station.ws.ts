@@ -142,9 +142,17 @@ export default function createStationHandlers(
         meterSerialNumber,
       } = validation.data;
       try {
-        let station = await stationService.getStationByName(
-          chargePointSerialNumber
-        );
+        let station: any = null;
+        if ((stationService as any).findBySerial) {
+          station = await (stationService as any).findBySerial(
+            chargePointSerialNumber
+          );
+        } else {
+          station = await stationService.getStationByName(
+            chargePointSerialNumber
+          );
+        }
+
         if (!station) {
           station = await stationService.createStation({
             name: chargePointVendor,

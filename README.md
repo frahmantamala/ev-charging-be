@@ -78,3 +78,12 @@ docker-compose exec app pnpm run migrate:run
 ```bash
 docker-compose up
 ```
+
+Additional documentation
+------------------------
+
+See the `docs/` folder for more detailed documentation:
+
+- `docs/ARCHITECTURE.md` — architecture overview and component responsibilities
+- `docs/OCPP.md` — OCPP message flows implemented and idempotency details
+- `docs/DB_RATIONALE.md` — database design

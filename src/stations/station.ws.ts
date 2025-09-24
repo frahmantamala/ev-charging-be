@@ -103,7 +103,7 @@ export default function createStationHandlers(
       uniqueId: string
     ) {
       logger.info(
-        { action: 'BootNotification', payload: payload },
+        { action: 'BootNotification', payload: maskSensitive(payload) },
         'Received BootNotification'
       );
       const validation = BootNotificationSchema.safeParse(payload);
@@ -119,13 +119,18 @@ export default function createStationHandlers(
         ];
         try {
           ws.send(JSON.stringify(response));
-        } catch {
-          const { connectionManager } = require('../ws/connection.manager');
-          if (payload.chargePointSerialNumber || payload.stationId) {
-            connectionManager.queueMessage(
-              payload.chargePointSerialNumber || payload.stationId,
-              JSON.stringify(response)
-            );
+        } catch (err) {
+          try {
+            const { connectionManager } = require('../ws/connection.manager');
+            if ((payload.chargePointSerialNumber || payload.stationId) && connectionManager && typeof connectionManager.queueMessage === 'function') {
+              connectionManager.queueMessage(
+                payload.chargePointSerialNumber || payload.stationId,
+                JSON.stringify(response)
+              );
+            }
+          } catch (e) {
+            // If connection manager isn't available, log and continue
+            logger.warn({ err: e, payload: maskSensitive(payload) }, 'Failed to queue message: connectionManager not available');
           }
         }
         return;
@@ -183,13 +188,14 @@ export default function createStationHandlers(
         ];
         try {
           ws.send(JSON.stringify(response));
-        } catch {
-          const { connectionManager } = require('../ws/connection.manager');
-          if (chargePointSerialNumber) {
-            connectionManager.queueMessage(
-              chargePointSerialNumber,
-              JSON.stringify(response)
-            );
+        } catch (err) {
+          try {
+            const { connectionManager } = require('../ws/connection.manager');
+            if (chargePointSerialNumber && connectionManager && typeof connectionManager.queueMessage === 'function') {
+              connectionManager.queueMessage(chargePointSerialNumber, JSON.stringify(response));
+            }
+          } catch (e) {
+            logger.warn({ err: e, chargePointSerialNumber }, 'Failed to queue BootNotification response');
           }
         }
       } catch (err: any) {

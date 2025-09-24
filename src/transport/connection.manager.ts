@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import logger from '../core/logger';
 
 export type StationConnectionState = {
   stationId: string;
@@ -40,10 +41,19 @@ export class ConnectionManager {
   }
 
   queueMessage(stationId: string, message: string) {
-    const conn = this.connections.get(stationId);
-    if (conn) {
-      conn.messageQueue.push(message);
+    let conn = this.connections.get(stationId);
+    if (!conn) {
+      conn = {
+        stationId,
+        ws: null,
+        status: 'disconnected',
+        lastSeen: new Date(),
+        messageQueue: [],
+      };
+      this.connections.set(stationId, conn);
     }
+    conn.messageQueue.push(message);
+    return true;
   }
 
   flushQueue(stationId: string) {
@@ -51,7 +61,13 @@ export class ConnectionManager {
     if (conn && conn.ws && conn.status === 'connected') {
       while (conn.messageQueue.length > 0) {
         const msg = conn.messageQueue.shift();
-        if (msg) conn.ws.send(msg);
+        if (msg) {
+          try { 
+            conn.ws.send(msg); 
+          } catch (err) { 
+            logger.error({ err, msg }, 'Failed to send queued message');
+          }
+        }
       }
     }
   }

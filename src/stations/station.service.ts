@@ -98,9 +98,16 @@ export class StationService {
     if (existing) {
       throw new Error('Station name already exists');
     }
-    const station = await this.repo.create(data);
-    emitStationCreated({ station });
-    return station;
+    try {
+      const station = await this.repo.create(data);
+      emitStationCreated({ station });
+      return station;
+    } catch (err: any) {
+      if (err && err.code && (err.code === '23505' || err.code === 'SQLITE_CONSTRAINT')) {
+        throw new Error('Station name already exists');
+      }
+      throw err;
+    }
   }
 
   async getStationById(id: string): Promise<Station | null> {
@@ -119,11 +126,18 @@ export class StationService {
       }
     }
     const before = await this.repo.findById(id);
-    const updated = await this.repo.update(id, update);
-    if (before && (before.name !== updated.name || before.location !== updated.location || before.firmware !== updated.firmware)) {
-      emitStationCreated({ station: updated });
+    try {
+      const updated = await this.repo.update(id, update);
+      if (before && (before.name !== updated.name || before.location !== updated.location || before.firmware !== updated.firmware)) {
+        emitStationCreated({ station: updated });
+      }
+      return updated;
+    } catch (err: any) {
+      if (err && err.code && (err.code === '23505' || err.code === 'SQLITE_CONSTRAINT')) {
+        throw new Error('Station name already exists');
+      }
+      throw err;
     }
-    return updated;
   }
 
   async listStations(): Promise<Station[]> {

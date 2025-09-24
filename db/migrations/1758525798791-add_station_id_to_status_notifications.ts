@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddStationIdToStatusNotifications1695473000000 implements MigrationInterface {
+export class AddStationIdToStatusNotifications1758525798791 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE status_notifications

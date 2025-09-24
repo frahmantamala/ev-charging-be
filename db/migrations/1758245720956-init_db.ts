@@ -3,7 +3,6 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
 export class InitDb1758245720956 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
-    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS timescaledb;`);
 
     // ----- Stations -----
     await queryRunner.query(`
@@ -46,12 +45,13 @@ export class InitDb1758245720956 implements MigrationInterface {
     // ----- Meter Values (Timescale hypertable) -----
     await queryRunner.query(`
       CREATE TABLE meter_values (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID DEFAULT gen_random_uuid(),
         time TIMESTAMPTZ NOT NULL,
         transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
         value_wh BIGINT NOT NULL,
         phase TEXT,
-        created_at TIMESTAMPTZ DEFAULT now()
+        created_at TIMESTAMPTZ DEFAULT now(),
+        PRIMARY KEY (id, time)  -- include 'time' in the primary key
       );
     `);
     await queryRunner.query(`SELECT create_hypertable('meter_values', 'time', if_not_exists => TRUE);`);
@@ -68,7 +68,8 @@ export class InitDb1758245720956 implements MigrationInterface {
         status TEXT NOT NULL,
         error_code TEXT,
         info TEXT,
-        created_at TIMESTAMPTZ DEFAULT now()
+        created_at TIMESTAMPTZ DEFAULT now(),
+        PRIMARY KEY (connector_id, time)
       );
     `);
     await queryRunner.query(`SELECT create_hypertable('status_notifications', 'time', if_not_exists => TRUE);`);
